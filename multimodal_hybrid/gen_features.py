@@ -60,17 +60,14 @@ def prepare_milvus(overwrite=True):
             FieldSchema(name="pk", dtype=DataType.VARCHAR,
                         is_primary=True, auto_id=True, max_length=100),
             FieldSchema(name="filename", dtype=DataType.VARCHAR, max_length=512),
-            FieldSchema(name="resnet_vector", dtype=DataType.FLOAT_VECTOR, dim=dim_resnet),
-            FieldSchema(name="clip_vector", dtype=DataType.FLOAT_VECTOR, dim=dim_clip),
+            FieldSchema(name="vector", dtype=DataType.FLOAT_VECTOR, dim=dim_clip),
         ]
 
     schema = CollectionSchema(fields, "")
     col = Collection(col_name, schema, consistency_level="Strong")
 
-    resnet_index = {"index_type": "FLAT", "metric_type": "IP"}
-    col.create_index("resnet_vector", resnet_index)
-    clip_index = {"index_type": "FLAT", "metric_type": "IP"}
-    col.create_index("clip_vector", clip_index)
+    index = {"index_type": "FLAT", "metric_type": "IP"}
+    col.create_index("vector", index)
     return col
 
 import time
@@ -78,23 +75,18 @@ def extract_features():
     col = prepare_milvus()
     filenames = os.listdir('./pics/')
     count = 0 
-    resnet_fe = ResNetFeatureExtractor()
-    clip_fe = CLIPFeatureExtractor()
+    fe = CLIPFeatureExtractor()
     for filename in filenames: 
         if filename.endswith('.jpg') is False:
             continue
         count = count + 1 
         image_path = f'./pics/{filename}'
         image = Image.open(image_path).convert('RGB')
-        
-        
-        feat1 = resnet_fe(image).detach().cpu().numpy()
-        feat2 = clip_fe(image).detach().cpu().numpy()
+        feat = fe(image).detach().cpu().numpy()
        
-        feat1 = feat1 / np.linalg.norm(feat1)
-        feat2 = feat2 / np.linalg.norm(feat2)
+        feat = feat / np.linalg.norm(feat)
     
-        col.insert([[filename], [feat1.flatten()], [feat2.flatten()]])
+        col.insert([[filename], [feat.flatten()]])
     
 
 if __name__ == '__main__':
